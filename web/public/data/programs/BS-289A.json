@@ -1,0 +1,1 @@
+{"id":"BS-289A","name":"Biophotonics","degree":"spec","majorId":"BS-289","source":"anteater","catalogYear":"20262027","url":null,"requirements":[{"id":"NxswOfKtdY","label":"3 from BME 135-138 and EECS 180A","type":"course","count":3,"courses":["BME 135","BME 136","BME 137","BME 138","EECS 180A"],"reusable":false}],"schoolRequirements":null,"sample_plan":[]}

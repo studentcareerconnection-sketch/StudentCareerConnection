@@ -1,0 +1,13 @@
+/.cache/
+__pycache__/
+
+# Raw scrape output (~200 MB) and its log: regenerate with `python scrape.py all`.
+# The site's own data (web/public/data, built by build_web_data.py) is committed.
+/data/
+*.log
+
+# Local editor/tool configuration
+/.claude/
+
+# Separate empty clone of the GitHub repo
+/StudentCareerConnection/

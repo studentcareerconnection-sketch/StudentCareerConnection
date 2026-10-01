@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!--
+    The student's own bookcase. Books are built by shelf-core.js (adapted from
+    ThreeUI "Complete Shelf"); the scene and UI live in home-shelf.js.
+  -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e6d2b4">
+  <title>My Shelf — UCI Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #e6d2b4;
+      --paper-light: #f1e4cf;
+      --paper-pale: #f8efe1;
+      --ink: #2b2119;
+      --ink-soft: #7b6653;
+      --rule: rgba(43, 33, 25, 0.18);
+      --accent: #c87046;
+      --serif: "Iowan Old Style", "Baskerville", "Times New Roman", serif;
+      --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --ease-out: cubic-bezier(0.2, 0.72, 0.24, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button {
+      color: inherit;
+      font: inherit;
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 3px;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .home {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 70% 60% at 50% 42%, var(--paper-light), transparent 72%),
+        var(--paper);
+    }
+
+    #scene {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      transition: opacity 700ms var(--ease-out);
+      touch-action: none;
+    }
+
+    .ready #scene {
+      opacity: 1;
+    }
+
+    #scene.has-book-hover {
+      cursor: pointer;
+    }
+
+    /* ── header ───────────────────────────────────────────────────────── */
+    .topbar {
+      position: absolute;
+      top: 22px;
+      right: 28px;
+      left: 32px;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      pointer-events: none;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .brand-badge {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--paper-pale);
+      place-items: center;
+    }
+
+    .brand-badge svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .brand-name {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(1.15rem, 2vw, 1.7rem);
+      font-weight: 400;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+
+    .view-all {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 52px;
+      padding: 0 28px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--ink);
+      color: var(--paper-pale);
+      font-size: 1.05rem;
+      font-weight: 500;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: transform 180ms var(--ease-out), box-shadow 180ms ease;
+    }
+
+    .view-all:hover {
+      box-shadow: 0 10px 24px rgba(43, 33, 25, 0.22);
+      transform: translateY(-1px);
+    }
+
+    .view-all svg {
+      width: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ── index strip ──────────────────────────────────────────────────── */
+    .strip {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 5;
+      padding: 22px 36px 26px;
+      border-top: 1px solid var(--rule);
+      background: linear-gradient(180deg, rgba(230, 210, 180, 0.55), rgba(230, 210, 180, 0.94) 40%);
+      transition: opacity 400ms var(--ease-out), transform 500ms var(--ease-out);
+    }
+
+    .strip-list {
+      display: flex;
+      gap: 44px;
+      margin: 0;
+      padding: 0;
+      overflow-x: auto;
+      list-style: none;
+      scrollbar-width: none;
+    }
+
+    .strip-list::-webkit-scrollbar {
+      display: none;
+    }
+
+    .strip-item {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 14px;
+      padding: 4px 6px 4px 0;
+      border: 0;
+      background: none;
+      color: var(--ink-soft);
+      text-align: left;
+      transition: color 200ms ease;
+    }
+
+    button.strip-item {
+      cursor: pointer;
+    }
+
+    .strip-item:hover,
+    .strip-item.is-hovered {
+      color: var(--ink);
+    }
+
+    .strip-icon {
+      width: 46px;
+      height: 46px;
+      flex: 0 0 auto;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.8;
+    }
+
+    .strip-text {
+      display: grid;
+      line-height: 1.3;
+    }
+
+    .strip-text small {
+      font-size: 0.92rem;
+    }
+
+    .strip-text strong {
+      color: var(--ink);
+      font-size: 1.12rem;
+      font-weight: 400;
+      white-space: nowrap;
+    }
+
+    .strip-add {
+      border-left: 1px solid var(--rule);
+      padding-left: 30px;
+    }
+
+    .strip-add .strip-icon {
+      opacity: 0.55;
+    }
+
+    /* ── Progress panel ───────────────────────────────────────────────── */
+    .progress-panel {
+      position: absolute;
+      top: 50%;
+      right: clamp(24px, 5vw, 80px);
+      z-index: 8;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      width: min(40vw, 470px);
+      max-height: min(76vh, 720px);
+      padding: 30px 30px 24px;
+      border: 1px solid var(--rule);
+      border-radius: 20px;
+      background: rgba(248, 239, 225, 0.94);
+      box-shadow: 0 30px 70px rgba(74, 47, 28, 0.18);
+      opacity: 0;
+      transform: translate(24px, -50%);
+      transition: opacity 500ms var(--ease-out), transform 600ms var(--ease-out);
+      pointer-events: none;
+    }
+
+    .is-open .progress-panel {
+      opacity: 1;
+      transform: translate(0, -50%);
+      transition-delay: 200ms;
+      pointer-events: auto;
+    }
+
+    .is-open .strip {
+      opacity: 0;
+      transform: translateY(20px);
+      pointer-events: none;
+    }
+
+    .panel-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      display: grid;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: 1px solid var(--rule);
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      place-items: center;
+    }
+
+    .panel-close:hover {
+      background: var(--ink);
+      color: var(--paper-pale);
+    }
+
+    .panel-close svg {
+      width: 14px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-width: 1.4;
+    }
+
+    .panel-eyebrow {
+      margin: 0 48px 10px 0;
+      color: var(--ink-soft);
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(2.4rem, 4vw, 3.4rem);
+      font-weight: 400;
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+    }
+
+    .panel-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 22px;
+      margin: 18px 0 0;
+      padding: 14px 0 0;
+      border-top: 1px solid var(--rule);
+    }
+
+    .panel-summary div {
+      display: grid;
+    }
+
+    .panel-summary strong {
+      font-family: var(--serif);
+      font-size: 1.7rem;
+      font-weight: 400;
+    }
+
+    .panel-summary span {
+      color: var(--ink-soft);
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .course-list {
+      min-height: 0;
+      margin: 16px -6px 0 0;
+      padding: 0 6px 0 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+    }
+
+    .course-group h3 {
+      position: sticky;
+      top: 0;
+      margin: 0;
+      padding: 10px 0 6px;
+      background: rgba(248, 239, 225, 0.98);
+      color: var(--ink-soft);
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .course-group ul {
+      margin: 0 0 8px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .course-group li {
+      display: grid;
+      grid-template-columns: 6.6em minmax(0, 1fr) auto;
+      align-items: baseline;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(43, 33, 25, 0.08);
+      font-size: 0.84rem;
+    }
+
+    .course-group li b {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .course-group li span {
+      overflow: hidden;
+      font-family: var(--serif);
+      font-size: 0.95rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .course-group li small {
+      color: var(--ink-soft);
+      font-size: 0.7rem;
+      white-space: nowrap;
+    }
+
+    .panel-empty {
+      margin: 18px 0 0;
+      color: var(--ink-soft);
+      font-family: var(--serif);
+      font-size: 1.05rem;
+      line-height: 1.5;
+    }
+
+    .panel-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .pill {
+      min-height: 40px;
+      padding: 0 18px;
+      border: 1px solid var(--ink);
+      border-radius: 999px;
+      background: transparent;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .pill:hover,
+    .pill.primary {
+      background: var(--ink);
+      color: var(--paper-pale);
+    }
+
+    .pill.primary:hover {
+      background: transparent;
+      color: var(--ink);
+    }
+
+    /* ── loading / fallback ───────────────────────────────────────────── */
+    .loading {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      background: var(--paper);
+      place-items: center;
+      transition: opacity 500ms ease;
+    }
+
+    .loading p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 0.66rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .fallback {
+      position: absolute;
+      inset: 0;
+      z-index: 15;
+      display: grid;
+      padding: 40px;
+      background: var(--paper);
+      place-content: center;
+      text-align: center;
+    }
+
+    .sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        top: 16px;
+        right: 16px;
+        left: 18px;
+      }
+
+      .brand {
+        gap: 12px;
+      }
+
+      .brand-badge {
+        width: 34px;
+        height: 34px;
+      }
+
+      .brand-name {
+        letter-spacing: 0.16em;
+      }
+
+      .view-all {
+        min-height: 42px;
+        padding: 0 18px;
+        font-size: 0.9rem;
+      }
+
+      .strip {
+        padding: 16px 18px 18px;
+      }
+
+      .strip-list {
+        gap: 26px;
+      }
+
+      .strip-icon {
+        width: 36px;
+        height: 36px;
+      }
+
+      .strip-text small {
+        font-size: 0.78rem;
+      }
+
+      .strip-text strong {
+        font-size: 0.98rem;
+      }
+
+      .progress-panel {
+        top: auto;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: auto;
+        max-height: 58vh;
+        border-radius: 20px 20px 0 0;
+        transform: translateY(30px);
+      }
+
+      .is-open .progress-panel {
+        transform: translateY(0);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main class="home" id="home">
+    <canvas id="scene" aria-hidden="true"></canvas>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 5.5h5.5a2 2 0 0 1 2 2V19a1.6 1.6 0 0 0-1.6-1.6H5zM19 5.5h-5.5a2 2 0 0 0-1.5.7M19 5.5v11.9h-5.4A1.6 1.6 0 0 0 12 19"></path></svg>
+        </span>
+        <h1 class="brand-name">UCI Planner</h1>
+      </div>
+      <button class="view-all" id="view-all" type="button">
+        View all
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>
+      </button>
+    </header>
+
+    <nav class="strip" aria-label="Books on your shelf">
+      <ul class="strip-list" id="strip-list"></ul>
+    </nav>
+
+    <aside class="progress-panel" id="progress-panel" role="dialog" aria-modal="true" aria-labelledby="progress-title" aria-hidden="true" inert>
+      <button class="panel-close" id="panel-close" type="button" aria-label="Put Progress back on the shelf">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"></path></svg>
+      </button>
+      <div class="panel-head">
+        <p class="panel-eyebrow">Volume I · Progress</p>
+        <h2 id="progress-title">Courses taken</h2>
+      </div>
+      <div class="panel-summary" id="panel-summary"></div>
+      <div class="course-list" id="course-list"></div>
+      <div class="panel-actions">
+        <button class="pill primary" id="open-roadmap" type="button">Open roadmap</button>
+      </div>
+    </aside>
+
+    <div class="sr-only" id="live-region" aria-live="polite"></div>
+
+    <section class="fallback" id="fallback" hidden>
+      <p id="fallback-message">Your shelf could not be drawn in this browser.</p>
+    </section>
+
+    <div class="loading" id="loading"><p>Setting out your shelf</p></div>
+  </main>
+
+  <script type="module" src="./home-shelf.js"></script>
+</body>
+</html>
